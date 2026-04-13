@@ -21,3 +21,14 @@ git add .
 git commit -m "pvz"
 
 git push -u origin main
+
+	Jeigu neveikia/yra errors:
+git status
+
+git checkout --ours .
+
+git add .
+
+git commit -m "pvz"
+
+git push -u origin main
