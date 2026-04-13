@@ -10,7 +10,7 @@ tada:
 
 git init 
 
-git remote add origin https://github.com/Tomas-Seikauskas/a.git
+git remote add origin https://github.com/Tomas-Seikauskas/Python-project.git
 
 git branch -M main
 
