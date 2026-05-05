@@ -25,18 +25,18 @@ class App(Frame):
     def initUI(self):
         self.parent.title("Calculator by Udin")
         self.pack(fill=BOTH, expand=True)
-        global value
-        value = 0
+        
         global equation
         equation = StringVar()
         global res
         res = StringVar()
         global history
         history = []
-        global historyList
         global equationEntry
         global equalsButton
+        global historyList
 
+        # Lygties ivesties laukas
         frame1 = Frame(self)
         frame1.pack(fill=X)
 
@@ -46,6 +46,7 @@ class App(Frame):
         equationEntry = Entry(frame1, textvariable=equation)
         equationEntry.pack(fill=X, padx=5, expand=True)
 
+        # Mygtuku frame
         frame2 = Frame(self)
         frame2.pack(fill=X)
 
@@ -64,6 +65,7 @@ class App(Frame):
         equalsButton = Button(frame2, text="=", width=8, command=self.calculate)
         equalsButton.pack(side=LEFT, anchor=N, padx=5, pady=5)
 
+        # Rezultato laukas
         frame3 = Frame(self)
         frame3.pack(fill=X)
 
@@ -73,6 +75,7 @@ class App(Frame):
         result = Entry(frame3, textvariable=res)
         result.pack(fill=X, padx=5, expand=True)
 
+        # Istorijos laukas
         frame4 = Frame(self)
         frame4.pack(fill=X)
 
@@ -83,7 +86,7 @@ class App(Frame):
         historyList.pack(side=LEFT, fill=X, padx=5, expand=True)
         historyList.bind('<<ListboxSelect>>', self.chooseHistory)
 
-    def errorMsg(self,msg):
+    def errorMsg(self, msg):
         if msg == 'error':
             tkinter.messagebox.showerror('Klaida!', 'Patikrinkite ivesta lygti')
         elif msg == 'divisionerror':
@@ -108,72 +111,15 @@ class App(Frame):
         equationEntry.focus_set()
 
     def calculate(self):
-        self.disableEqualsButton()
         try:
             text = equation.get()
-            value = self.calculateEquation(text)
+            value = eval(text)
             res.set(self.makeAsItIs(value))
             self.addToHistory(text, self.makeAsItIs(value))
         except ZeroDivisionError:
             self.errorMsg('divisionerror')
         except:
             self.errorMsg('error')
-        finally:
-            self.parent.after(700, self.enableEqualsButton)
-
-    def disableEqualsButton(self):
-        equalsButton.config(state=DISABLED)
-
-    def enableEqualsButton(self):
-        equalsButton.config(state=NORMAL)
-
-    def calculateEquation(self, text):
-        numbers = []
-        signs = []
-        number = ''
-
-        text = text.replace(' ', '')
-
-        for i in range(len(text)):
-            symbol = text[i]
-            if symbol in '0123456789.':
-                number = number + symbol
-            elif symbol in '+-*/':
-                if symbol == '-' and (i == 0 or text[i - 1] in '+-*/'):
-                    number = number + symbol
-                else:
-                    numbers.append(float(number))
-                    signs.append(symbol)
-                    number = ''
-            else:
-                raise ValueError
-
-        numbers.append(float(number))
-
-        i = 0
-        while i < len(signs):
-            if signs[i] == '*' or signs[i] == '/':
-                if signs[i] == '*':
-                    value = numbers[i] * numbers[i + 1]
-                else:
-                    if numbers[i + 1] == 0:
-                        raise ZeroDivisionError
-                    value = numbers[i] / numbers[i + 1]
-
-                numbers[i] = value
-                del numbers[i + 1]
-                del signs[i]
-            else:
-                i = i + 1
-
-        value = numbers[0]
-        for i in range(len(signs)):
-            if signs[i] == '+':
-                value = value + numbers[i + 1]
-            else:
-                value = value - numbers[i + 1]
-
-        return value
 
     def addToHistory(self, text, value):
         historyText = text + ' = ' + str(value)
@@ -187,7 +133,7 @@ class App(Frame):
             equation.set(text)
 
     def makeAsItIs(self, value):
-        if (value == int(value)):
+        if value == int(value):
             value = int(value)
         return value
 
@@ -199,13 +145,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-'''
-TEST AR VEIKIA
-TEST AR VEIKIA
-TEST AR VEIKIA
-TEST AR VEIKIA
-TEST AR VEIKIA
-TEST AR VEIKIA
-TEST AR VEIKIA
-TEST AR VEIKIA
-'''
