@@ -27,92 +27,164 @@ class App(Frame):
         self.pack(fill=BOTH, expand=True)
         global value
         value = 0
-        global num1
-        num1 = StringVar()
-        global num2
-        num2 = StringVar()
+        global equation
+        equation = StringVar()
         global res
         res = StringVar()
+        global history
+        history = []
+        global historyList
+        global equationEntry
+        global equalsButton
 
         frame1 = Frame(self)
         frame1.pack(fill=X)
 
-        lbl1 = Label(frame1, text="Input Number 1 :", width=15)
+        lbl1 = Label(frame1, text="Lygtis :", width=15)
         lbl1.pack(side=LEFT, padx=5, pady=5)
 
-        entry1 = Entry(frame1,textvariable=num1)
-        entry1.pack(fill=X, padx=5, expand=True)
+        equationEntry = Entry(frame1, textvariable=equation)
+        equationEntry.pack(fill=X, padx=5, expand=True)
 
         frame2 = Frame(self)
         frame2.pack(fill=X)
 
-        lbl2 = Label(frame2, text="Input Number 2 :", width=15)
-        lbl2.pack(side=LEFT, padx=5, pady=5)
+        btnplus = Button(frame2, text="+", width=8, command=self.plus)
+        btnplus.pack(side=LEFT, anchor=N, padx=5, pady=5)
 
-        entry2 = Entry(frame2,textvariable=num2)
-        entry2.pack(fill=X, padx=5, expand=True)
+        btnminus = Button(frame2, text="-", width=8, command=self.minus)
+        btnminus.pack(side=LEFT, anchor=N, padx=5, pady=5)
+
+        btnmul = Button(frame2, text="*", width=8, command=self.mul)
+        btnmul.pack(side=LEFT, anchor=N, padx=5, pady=5)
+
+        btndiv = Button(frame2, text="/", width=8, command=self.div)
+        btndiv.pack(side=LEFT, anchor=N, padx=5, pady=5)
+
+        equalsButton = Button(frame2, text="=", width=8, command=self.calculate)
+        equalsButton.pack(side=LEFT, anchor=N, padx=5, pady=5)
 
         frame3 = Frame(self)
         frame3.pack(fill=X)
 
-        btnplus = Button(frame3, text="+", width=8, command=self.plus)
-        btnplus.pack(side=LEFT, anchor=N, padx=5, pady=5)
+        lbl3 = Label(frame3, text="Rezultatas :", width=15)
+        lbl3.pack(side=LEFT, padx=5, pady=5)
 
-        btnminus = Button(frame3, text="-", width=8, command=self.minus)
-        btnminus.pack(side=LEFT, anchor=N, padx=5, pady=5)
-
-        btnmul = Button(frame3, text="*", width=8, command=self.mul)
-        btnmul.pack(side=LEFT, anchor=N, padx=5, pady=5)
-
-        btndiv = Button(frame3, text="/", width=8, command=self.div)
-        btndiv.pack(side=LEFT, anchor=N, padx=5, pady=5)
+        result = Entry(frame3, textvariable=res)
+        result.pack(fill=X, padx=5, expand=True)
 
         frame4 = Frame(self)
         frame4.pack(fill=X)
 
-        lbl3 = Label(frame4, text="Result :", width=10)
-        lbl3.pack(side=LEFT, padx=5, pady=5)
+        lbl4 = Label(frame4, text="Istorija :", width=15)
+        lbl4.pack(side=LEFT, padx=5, pady=5)
 
-        result = Entry(frame4,textvariable=res)
-        result.pack(fill=X, padx=5, expand=True)
+        historyList = Listbox(frame4, height=6)
+        historyList.pack(side=LEFT, fill=X, padx=5, expand=True)
+        historyList.bind('<<ListboxSelect>>', self.chooseHistory)
 
     def errorMsg(self,msg):
         if msg == 'error':
-            tkinter.messagebox.showerror('Error!', 'Something went wrong! Maybe invalid entries')
+            tkinter.messagebox.showerror('Klaida!', 'Patikrinkite ivesta lygti')
         elif msg == 'divisionerror':
-            tkinter.messagebox.showerror('Division Error', 'The value of input number 2 is 0. No dividing by 0')
+            tkinter.messagebox.showerror('Dalybos klaida', 'Negalima dalinti is 0')
 
     def plus(self):
-        try:
-            value = float(num1.get()) + float(num2.get())
-            res.set(self.makeAsItIs(value))
-        except:
-            self.errorMsg('error')
+        self.addToEquation('+')
 
     def minus(self):
-        try:
-            value = float(num1.get()) - float(num2.get())
-            res.set(self.makeAsItIs(value))
-        except:
-            self.errorMsg('error')
+        self.addToEquation('-')
 
     def mul(self):
-        try:
-            value = float(num1.get()) * float(num2.get())
-            res.set(self.makeAsItIs(value))
-        except:
-            self.errorMsg('error')
+        self.addToEquation('*')
 
     def div(self):
-        # checks if user is trying to divide by zero
-        if num2.get() == '0':
+        self.addToEquation('/')
+
+    def addToEquation(self, sign):
+        place = equationEntry.index(INSERT)
+        equationEntry.insert(place, sign)
+        equationEntry.icursor(place + 1)
+        equationEntry.focus_set()
+
+    def calculate(self):
+        self.disableEqualsButton()
+        try:
+            text = equation.get()
+            value = self.calculateEquation(text)
+            res.set(self.makeAsItIs(value))
+            self.addToHistory(text, self.makeAsItIs(value))
+        except ZeroDivisionError:
             self.errorMsg('divisionerror')
-        elif num2.get() != '0':
-            try:
-                value = float(num1.get()) / float(num2.get())
-                res.set(self.makeAsItIs(value))
-            except:
-                self.errorMsg('error')
+        except:
+            self.errorMsg('error')
+        finally:
+            self.parent.after(700, self.enableEqualsButton)
+
+    def disableEqualsButton(self):
+        equalsButton.config(state=DISABLED)
+
+    def enableEqualsButton(self):
+        equalsButton.config(state=NORMAL)
+
+    def calculateEquation(self, text):
+        numbers = []
+        signs = []
+        number = ''
+
+        text = text.replace(' ', '')
+
+        for i in range(len(text)):
+            symbol = text[i]
+            if symbol in '0123456789.':
+                number = number + symbol
+            elif symbol in '+-*/':
+                if symbol == '-' and (i == 0 or text[i - 1] in '+-*/'):
+                    number = number + symbol
+                else:
+                    numbers.append(float(number))
+                    signs.append(symbol)
+                    number = ''
+            else:
+                raise ValueError
+
+        numbers.append(float(number))
+
+        i = 0
+        while i < len(signs):
+            if signs[i] == '*' or signs[i] == '/':
+                if signs[i] == '*':
+                    value = numbers[i] * numbers[i + 1]
+                else:
+                    if numbers[i + 1] == 0:
+                        raise ZeroDivisionError
+                    value = numbers[i] / numbers[i + 1]
+
+                numbers[i] = value
+                del numbers[i + 1]
+                del signs[i]
+            else:
+                i = i + 1
+
+        value = numbers[0]
+        for i in range(len(signs)):
+            if signs[i] == '+':
+                value = value + numbers[i + 1]
+            else:
+                value = value - numbers[i + 1]
+
+        return value
+
+    def addToHistory(self, text, value):
+        historyText = text + ' = ' + str(value)
+        history.append(historyText)
+        historyList.insert(END, historyText)
+
+    def chooseHistory(self, event):
+        choice = historyList.curselection()
+        if len(choice) > 0:
+            text = history[choice[0]].split(' = ')[0]
+            equation.set(text)
 
     def makeAsItIs(self, value):
         if (value == int(value)):
@@ -121,7 +193,7 @@ class App(Frame):
 
 def main():
     root = Tk()
-    root.geometry("300x140")
+    root.geometry("420x240")
     app = App(root)
     root.mainloop()
 
