@@ -9,7 +9,6 @@
         python3 App.py
 
     Author: Udin <just.udin@yahoo.com>
-
 '''
 
 from tkinter import *
