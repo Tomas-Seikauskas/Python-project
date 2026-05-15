@@ -11,10 +11,11 @@
     Author: Udin <just.udin@yahoo.com>
 '''
 
-from math import sqrt
+from math import sqrt, floor, log10
 from tkinter import *
 import tkinter.messagebox
-from tkinter.ttk import Frame, Label, Entry
+from tkinter.ttk import Frame, Label, Entry, Combobox
+import re
 
 
 class App(Frame):
@@ -26,7 +27,7 @@ class App(Frame):
     def initUI(self):
         self.parent.title("Calculator by Udin")
         self.pack(fill=BOTH, expand=True)
-        
+
         global equation
         equation = StringVar()
         global res
@@ -37,7 +38,7 @@ class App(Frame):
         global equalsButton
         global historyList
 
-        # Lygties ivesties laukas
+        # Lygties įvesties laukas
         frame1 = Frame(self)
         frame1.pack(fill=X)
 
@@ -47,7 +48,7 @@ class App(Frame):
         equationEntry = Entry(frame1, textvariable=equation)
         equationEntry.pack(fill=X, padx=5, expand=True)
 
-        # Mygtuku frame
+        # Mygtukų frame — eilė 1: pagrindiniai veiksmai
         frame2 = Frame(self)
         frame2.pack(fill=X)
 
@@ -66,7 +67,29 @@ class App(Frame):
         equalsButton = Button(frame2, text="=", width=8, command=self.calculate)
         equalsButton.pack(side=LEFT, anchor=N, padx=5, pady=5)
 
-        # Rezultato laukas
+        # Mygtukų frame — eilė 2: papildomos funkcijos
+        frame2b = Frame(self)
+        frame2b.pack(fill=X)
+
+        btnmod = Button(frame2b, text="%", width=8, command=self.mod)
+        btnmod.pack(side=LEFT, anchor=N, padx=5, pady=5)
+
+        btnabs = Button(frame2b, text="|x|", width=8, command=self.abs)
+        btnabs.pack(side=LEFT, anchor=N, padx=5, pady=5)
+
+        btnsqrt = Button(frame2b, text="√()", width=8, command=self.root)
+        btnsqrt.pack(side=LEFT, anchor=N, padx=5, pady=5)
+
+        btnpow = Button(frame2b, text="^", width=8, command=self.power)
+        btnpow.pack(side=LEFT, anchor=N, padx=5, pady=5)
+
+        btnlpar = Button(frame2b, text="(", width=5, command=lambda: self.addToEquation("("))
+        btnlpar.pack(side=LEFT, anchor=N, padx=2, pady=5)
+
+        btnrpar = Button(frame2b, text=")", width=5, command=lambda: self.addToEquation(")"))
+        btnrpar.pack(side=LEFT, anchor=N, padx=2, pady=5)
+
+        # Rezultato laukas + formato pasirinkimas#t
         frame3 = Frame(self)
         frame3.pack(fill=X)
 
@@ -75,6 +98,36 @@ class App(Frame):
 
         result = Entry(frame3, textvariable=res)
         result.pack(fill=X, padx=5, expand=True)
+
+     
+        frame3b = Frame(self)
+        frame3b.pack(fill=X)
+
+        lbl_fmt = Label(frame3b, text="Formatas :", width=15)
+        lbl_fmt.pack(side=LEFT, padx=5, pady=3)
+
+        global result_format
+        result_format = StringVar(value="Dešimtainė")
+
+        fmt_combo = Combobox(
+            frame3b,
+            textvariable=result_format,
+            values=[ "Dešimtainė", "Mokslinė"],
+            state="readonly",
+            width=18,
+        )
+        fmt_combo.pack(side=LEFT, padx=5, pady=3)
+        fmt_combo.bind("<<ComboboxSelected>>", lambda e: self._reformat_result())
+
+        global decimal_places
+        decimal_places = IntVar(value=4)
+
+        lbl_dec = Label(frame3b, text="  Skaitmenys:", width=13)
+        lbl_dec.pack(side=LEFT, padx=(10, 2), pady=3)
+
+        dec_spin = Spinbox(frame3b, from_=0, to=15, textvariable=decimal_places, width=4,
+                           command=self._reformat_result)
+        dec_spin.pack(side=LEFT, padx=2, pady=3)#cia
 
         # Istorijos laukas
         frame4 = Frame(self)
@@ -87,11 +140,15 @@ class App(Frame):
         historyList.pack(side=LEFT, fill=X, padx=5, pady=(5, 8), expand=True)
         historyList.bind('<<ListboxSelect>>', self.chooseHistory)
 
+        self._last_raw_value = None
+
     def errorMsg(self, msg):
         if msg == 'error':
-            tkinter.messagebox.showerror('Klaida!', 'Patikrinkite ivesta lygti')
+            tkinter.messagebox.showerror('Klaida!', 'Patikrinkite įvestą lygtį')
         elif msg == 'divisionerror':
-            tkinter.messagebox.showerror('Dalybos klaida', 'Negalima dalinti is 0')
+            tkinter.messagebox.showerror('Dalybos klaida', 'Negalima dalinti iš 0')
+        elif msg == 'sqrterror':#t
+            tkinter.messagebox.showerror('Šaknies klaida', 'Negalima traukti šaknies iš neigiamo skaičiaus')
 
     def plus(self):
         self.addToEquation('+')
@@ -105,34 +162,149 @@ class App(Frame):
     def div(self):
         self.addToEquation('/')
 
-    def sqr(self):
-        self.addToEquation('²')#
+    def mod(self):#t
+        self.addToEquation('%')
 
-    def root(self):
-        self.addToEquation('√( )')#
+    def abs(self):#t
+        place = equationEntry.index(INSERT)
+        equationEntry.insert(place, '|()|')
+
+    def root(self):#t
+        place = equationEntry.index(INSERT)
+        equationEntry.insert(place, '√()')
+
+    def power(self):#t
+        self.addToEquation('^')
 
     def addToEquation(self, sign):
         place = equationEntry.index(INSERT)
         equationEntry.insert(place, sign)
-        equationEntry.icursor(place + 1)
+        equationEntry.icursor(place + len(sign))
         equationEntry.focus_set()
+
+    def preprocess(self, text):#t
+
+        result = text.strip()
+        result = self._replace_sqrt(result)
+        result = result.replace('^', '**')
+        result = self._replace_abs(result)
+
+        return result
+
+    def _replace_sqrt(self, text):#skaiciavimas#t
+
+        out = []
+        i = 0
+        while i < len(text):
+            if text[i] == '√':
+                i += 1
+                
+                if text[i] == '(':
+                    depth = 0
+                    start = i
+                    j = i
+                    while j < len(text):
+                        if text[j] == '(':
+                            depth += 1
+                        elif text[j] == ')':
+                            depth -= 1
+                            if depth == 0:
+                                break
+                        j += 1
+                    inner = text[start:j + 1]  
+                    j += 1  
+
+                    if j < len(text) and text[j] == '^':
+                        j += 1
+                        if j < len(text) and text[j] == '(':
+                            depth2 = 0
+                            k = j
+                            while k < len(text):
+                                if text[k] == '(':
+                                    depth2 += 1
+                                elif text[k] == ')':
+                                    depth2 -= 1
+                                    if depth2 == 0:
+                                        break
+                                k += 1
+                            exp_part = text[j:k + 1]
+                            j = k + 1
+                        else:
+                            k = j
+                            while k < len(text) and (text[k].isdigit() or text[k] == '.'):
+                                k += 1
+                            exp_part = text[j:k]
+                            j = k
+                        out.append(f'(sqrt{inner})**{exp_part}')
+                    else:
+                        out.append(f'sqrt{inner}')
+                    i = j
+                else:
+                    out.append('√')
+            else:
+                out.append(text[i])
+                i += 1
+        return ''.join(out)
+
+    def _replace_abs(self, text):#t
+        out = []
+        i = 0
+        while i < len(text):
+            if text[i] == '|' and i + 1 < len(text) and text[i + 1] == '(':
+                depth = 0
+                j = i + 1
+                while j < len(text):
+                    if text[j] == '(':
+                        depth += 1
+                    elif text[j] == ')':
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    j += 1
+                if j + 1 < len(text) and text[j + 1] == '|':
+                    inner = text[i + 2:j]  
+                    out.append(f'abs({inner})')
+                    i = j + 2
+                else:
+                    out.append(text[i])
+                    i += 1
+            else:
+                out.append(text[i])
+                i += 1
+        return ''.join(out)
 
     def calculate(self):
         try:
-            i=0#
-            while i < len(text):#
-              if text[i] == '√':#
-                 text[i] =sqrt(text[i+2])#
-                  
-            
-            text = equation.get()
-            value = eval(text)
-            res.set(self.makeAsItIs(value))
-            self.addToHistory(text, self.makeAsItIs(value))
+            raw = equation.get()
+            processed = self.preprocess(raw)
+            value = eval(processed, {"__builtins__": {}}, {"sqrt": sqrt, "abs": abs})
+            self._last_raw_value = float(value)
+            formatted = self.format_value(self._last_raw_value)
+            res.set(formatted)
+            self.addToHistory(raw, formatted)
         except ZeroDivisionError:
             self.errorMsg('divisionerror')
+        except ValueError:
+            self.errorMsg('sqrterror')
         except:
             self.errorMsg('error')
+
+    def format_value(self, value):#t
+
+        fmt = result_format.get()
+        dec = decimal_places.get()
+
+        if fmt == "Mokslinė":
+            return f"{value:.{dec}e}"
+        elif fmt == "Dešimtainė":
+            return f"{value:.{dec}f}"
+        else:
+            formatted = f"{value:.{dec}f}".rstrip('0').rstrip('.')
+            return formatted
+
+    def _reformat_result(self):#t
+        if self._last_raw_value is not None:
+            res.set(self.format_value(self._last_raw_value))
 
     def addToHistory(self, text, value):
         historyText = text + ' = ' + str(value)
@@ -164,7 +336,7 @@ class EnhancedApp(App):
         self._install_shortcuts()
 
     def _apply_window_shell(self):
-        self.parent.geometry("470x310")
+        self.parent.geometry("520x420")
         self.parent.resizable(True, True)
 
     def _build_menu(self):
@@ -194,6 +366,7 @@ class EnhancedApp(App):
         style.configure("TLabelframe", background="#ececec", relief="groove", borderwidth=2)
         style.configure("TLabelframe.Label", background="#ececec", foreground="#222222", font=font_spec)
         style.configure("TButton", font=font_spec)
+        style.configure("TCombobox", font=font_spec)
         self.parent.configure(bg="#ececec")
         self._style_original_frames()
 
@@ -232,6 +405,8 @@ class EnhancedApp(App):
                 widget.configure(font=(self._font_family, self._font_size))
             elif wtype in ("Frame", "TFrame", "Labelframe", "TLabelframe"):
                 widget.configure(bg="#ececec", relief=GROOVE, borderwidth=1)
+            elif wtype == "Spinbox":
+                widget.configure(font=(self._font_family, self._font_size))
         except:
             pass
 
@@ -266,7 +441,7 @@ class EnhancedApp(App):
             req_height = self.parent.winfo_reqheight()
             self.parent.minsize(req_width, req_height)
         except:
-            self.parent.minsize(470, 310)
+            self.parent.minsize(520, 420)
 
     def _install_shortcuts(self):
         self.parent.bind("<Return>", lambda event: self.calculate())
@@ -276,6 +451,7 @@ class EnhancedApp(App):
     def clear_all(self):
         equation.set("")
         res.set("")
+        self._last_raw_value = None
         historyList.delete(0, END)
         history.clear()
         try:
@@ -323,7 +499,7 @@ App = EnhancedApp
 
 def main():
     root = Tk()
-    root.geometry("470x310")
+    root.geometry("520x420")
     app = App(root)
     root.mainloop()
 
