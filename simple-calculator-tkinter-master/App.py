@@ -11,6 +11,7 @@
     Author: Udin <just.udin@yahoo.com>
 '''
 
+from math import sqrt
 from tkinter import *
 import tkinter.messagebox
 from tkinter.ttk import Frame, Label, Entry
@@ -103,6 +104,12 @@ class App(Frame):
     def div(self):
         self.addToEquation('/')
 
+    def sqr(self):
+        self.addToEquation('²')#
+
+    def root(self):
+        self.addToEquation('√( )')#
+
     def addToEquation(self, sign):
         place = equationEntry.index(INSERT)
         equationEntry.insert(place, sign)
@@ -111,6 +118,12 @@ class App(Frame):
 
     def calculate(self):
         try:
+            i=0#
+            while i < len(text):#
+              if text[i] == '√':#
+                 text[i] =sqrt(text[i+2])#
+                  
+            
             text = equation.get()
             value = eval(text)
             res.set(self.makeAsItIs(value))
